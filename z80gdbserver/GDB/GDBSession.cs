@@ -30,7 +30,7 @@ namespace z80gdbserver.Gdb
 			public const string OK = "OK";
 			public const string Error = "E00";
 			public const string Breakpoint = "T05";
-			public const string HaltedReason = "T05thread:00;";
+			public const string HaltedReason = "S05";//"T05thread:00;";
 			public const string Interrupt = "T02";
 		}
 
@@ -43,109 +43,43 @@ namespace z80gdbserver.Gdb
 
 		#region Register stuff
 
-		public enum RegisterSize { Byte, Word };
-
 		// GDB regs order:
-		// "a", "f", "bc", "de", "hl", "ix", "iy", "sp", "i", "r",
-		// "ax", "fx", "bcx", "dex", "hlx", "pc"
+		// R0 - R12 , SP , LR , PC , xPSR
 
-		private static readonly RegisterSize[] s_registerSize = new RegisterSize[] {
-			RegisterSize.Byte, RegisterSize.Byte,
-			RegisterSize.Word, RegisterSize.Word,
-			RegisterSize.Word, RegisterSize.Word,
-			RegisterSize.Word, RegisterSize.Word,
-			RegisterSize.Byte, RegisterSize.Byte,
-			RegisterSize.Byte, RegisterSize.Byte,
-			RegisterSize.Word, RegisterSize.Word,
-			RegisterSize.Word, RegisterSize.Word
-		};
+		public static int RegistersCount { get { return 17; } }
 
-		private static readonly Action<CpuRegs, ushort>[] s_regSetters = new Action<CpuRegs, ushort>[] {
-			(r, v) => r.A = (byte)v,
-			(r, v) => r.F = (byte)v,
-			(r, v) => r.BC = v,
-			(r, v) => r.DE = v,
-			(r, v) => r.HL = v,
-			(r, v) => r.IX = v,
-			(r, v) => r.IY = v,
-			(r, v) => r.SP = v,
-			(r, v) => r.I = (byte)v,
-			(r, v) => r.R = (byte)v,
-			(r, v) => r._AF = (ushort)((r._AF & 0x00FF) | ((v & 0xFF) << 8)),
-			(r, v) => r._AF = (ushort)((r._AF & 0xFF) | (v & 0xFF)),
-			(r, v) => r._BC = v,
-			(r, v) => r._DE = v,
-			(r, v) => r._HL = v,
-			(r, v) => r.PC = v
-		};
-
-		private static readonly Func<CpuRegs, int>[] s_regGetters = new Func<CpuRegs, int>[] {
-			r => r.A,
-			r => r.F,
-			r => r.BC,
-			r => r.DE,
-			r => r.HL,
-			r => r.IX,
-			r => r.IY,
-			r => r.SP,
-			r => r.I,
-			r => r.R,
-			r => r._AF >> 8,
-			r => r._AF & 0xFF,
-			r => r._BC,
-			r => r._DE,
-			r => r._HL,
-			r => r.PC
-		};
-
-		public static int RegistersCount { get { return s_registerSize.Length; } }
-
-		public static RegisterSize GetRegisterSize(int i)
-		{
-			return s_registerSize[i];
-		}
 
 		public string GetRegisterAsHex(int reg)
 		{
-			int result = s_regGetters[reg](_target.CPU.regs);
-			if (s_registerSize[reg] == RegisterSize.Byte)
-				return ((byte)(result)).ToLowEndianHexString();
-			else
-				return ((ushort)(result)).ToLowEndianHexString();
+			uint result = _target.RDREG(reg);
+			return ((byte)result).ToLowEndianHexString().ToLower() + ((byte)(result>>8)).ToLowEndianHexString().ToLower() +
+				((byte)(result >> 16)).ToLowEndianHexString().ToLower() + ((byte)(result >> 24)).ToLowEndianHexString().ToLower();
+			
 		}
 
 		public bool SetRegister(int reg, string hexValue)
 		{
-			int val = 0;
+			uint val = 0;
 			if (hexValue.Length == 4)
-				val = Convert.ToUInt16(hexValue.Substring(0, 2), 16) | (Convert.ToUInt16(hexValue.Substring(2, 2), 16) << 8);
-			else
-				val = Convert.ToUInt16(hexValue, 16);
+				val = Convert.ToUInt32(hexValue.Substring(0, 2), 16) | (Convert.ToUInt32(hexValue.Substring(2, 2), 16) << 8) |
+					(Convert.ToUInt32(hexValue.Substring(4, 2), 16) << 16) | (Convert.ToUInt32(hexValue.Substring(6, 2), 16) << 24);
 
-			s_regSetters[reg](_target.CPU.regs, (ushort)val);
+			_target.WRREG(reg, val);
 
 			return true;
 		}
 
 		#endregion
 
-		public static string FormatResponse(string response)
+		public static string FormatResponse(string response,bool ack)
 		{
-			return "+$" + response + "#" + GDBPacket.CalculateCRC(response);
+			return ((ack)?"+$":"$") + response + "#" + GDBPacket.CalculateCRC(response);
 		}
 
 		public string ParseRequest(GDBPacket packet, out bool isSignal)
 		{
 			var result = StandartAnswers.Empty;
 			isSignal = false;
-
-			// ctrl+c is SIGINT
-			if (packet.GetBytes()[0] == 0x03)
-			{
-				_target.DoStop();
-				result = StandartAnswers.Interrupt;
-				isSignal = true;
-			}
 
 			try
 			{
@@ -154,11 +88,11 @@ namespace z80gdbserver.Gdb
 					case '\0': // Command is empty ("+" in 99.99% cases)
 						return null;
 					case 'q':
-						result = GeneralQueryResponse(packet); break;
+						result = GeneralQueryResponse(packet); break; // handleQueryPacket(data);
 					case 'Q':
 						result = GeneralQueryResponse(packet); break;
 					case '?':
-						result = GetTargetHaltedReason(packet); break;
+						result = GetTargetHaltedReason(packet); break; //handleException();
 					case '!': // extended connection
 						break;
 					case 'g': // read registers
@@ -178,9 +112,9 @@ namespace z80gdbserver.Gdb
 					case 'P': // set single register
 						result = SetRegister(packet); break;
 					case 'v': // some requests, mainly vCont
-						result = ExecutionRequest(packet); break;
+						result = ExecutionRequest(packet); break; // packet = gdbCreateMsgPacket("");
 					case 's': //stepi
-						_target.CPU.ExecCycle();
+						_target.ExecCycle();
 						result = "T05";
 						break;
 					case 'z': // remove bp
@@ -202,6 +136,18 @@ namespace z80gdbserver.Gdb
 						_target.DoRun();
 						result = StandartAnswers.OK;
 						break;
+					default:
+						// ctrl+c is SIGINT
+						if (packet.GetBytes()[0] == 0x03)
+						{
+							_target.DoStop();
+							result = StandartAnswers.Interrupt;
+							isSignal = true;
+						}
+						else
+							return null;
+						break;
+
 				}
 			}
 			catch (Exception ex)
@@ -213,7 +159,7 @@ namespace z80gdbserver.Gdb
 			if (result == null)
 				return "+";
 			else
-				return FormatResponse(result);
+				return FormatResponse(result,!isSignal);
 		}
 
 		private static string GetErrorAnswer(Errno errno)
@@ -244,21 +190,23 @@ namespace z80gdbserver.Gdb
 
 		private string ReadRegisters(GDBPacket packet)
 		{
-			var values = Enumerable.Range(0, RegistersCount - 1)
-				.Select(i => GetRegisterAsHex(i))
-				.ToArray();
+			string[] values = new string[17];
+			for (int i = 0; i < values.Length; i++)
+				values[i] = GetRegisterAsHex(i);
 			return String.Join("", values);
 		}
 
 		private string WriteRegisters(GDBPacket packet)
 		{
+			/*
 			var regsData = packet.GetCommandParameters()[0];
 			for (int i = 0, pos = 0; i < RegistersCount; i++)
 			{
-				int currentRegisterLength = GetRegisterSize(i) == RegisterSize.Word ? 4 : 2;
+				int currentRegisterLength = 8;
 				SetRegister(i, regsData.Substring(pos, currentRegisterLength));
 				pos += currentRegisterLength;
 			}
+			*/
 			return StandartAnswers.OK;
 		}
 
@@ -285,18 +233,36 @@ namespace z80gdbserver.Gdb
 			}
 			var arg1 = Convert.ToUInt32(parameters[0], 16);
 			var arg2 = Convert.ToUInt32(parameters[1], 16);
-			if (arg1 > ushort.MaxValue || arg2 > ushort.MaxValue)
+			if (arg1 > uint.MaxValue || arg2 > uint.MaxValue)
 			{
 				return GetErrorAnswer(Errno.EPERM);
 			}
-			var addr = (ushort)arg1;
-			var length = (ushort)arg2;
+			var addr = (uint)arg1;
+			var length = (uint)arg2;
 			var result = string.Empty;
-			for (var i = 0; i < length; i++)
+			for (uint i = 0; i < length;)
 			{
-				var hex = _target.CPU.RDMEM((ushort)(addr + i))
-					.ToLowEndianHexString();
-				result += hex;
+				uint remain = length - i;
+				if (remain > 64)
+					remain = 64;
+
+				byte[] get = _target.RDMEM((uint)(addr + i),(uint) remain);
+
+				for (int j = 0; j < get.Length; j++)
+				{
+					var hex = get[j].ToLowEndianHexString().ToLower();
+					result += hex;
+				}
+
+
+				if ((get.Length == 0) && (i == 0))
+					return GetErrorAnswer(Errno.EFAULT);
+				else if (get.Length != remain)  return result;
+
+
+
+
+				i += remain;
 			}
 			return result;
 		}
@@ -310,18 +276,37 @@ namespace z80gdbserver.Gdb
 			}
 			var arg1 = Convert.ToUInt32(parameters[0], 16);
 			var arg2 = Convert.ToUInt32(parameters[1], 16);
-			if (arg1 > ushort.MaxValue || arg2 > ushort.MaxValue)
+			if (arg1 > uint.MaxValue || arg2 > uint.MaxValue)
 			{
 				return GetErrorAnswer(Errno.ENOENT);
 			}
-			var addr = (ushort)arg1;
-			var length = (ushort)arg2;
-			for (var i = 0; i < length; i++)
+			uint addr = (uint)arg1;
+			uint length = (uint)arg2;
+
+			byte[] data = new byte[length];
+			for (uint i = 0; i < length; i++)
 			{
-				var hex = parameters[2].Substring(i * 2, 2);
+				var hex = parameters[2].Substring((int)i * 2, 2);
 				var value = Convert.ToByte(hex, 16);
-				_target.CPU.WRMEM((ushort)(addr + i), value);
+				data[i] = value;
 			}
+
+			for (uint i=0;i<length;)
+			{
+				uint remain = length - i;
+				if (remain > 64)
+					remain = 64;
+
+				byte[] toSend = new byte[remain];
+				for (int j=0;j<remain;j++)
+				{
+					toSend[j] = data[i + j];
+				}
+				_target.WRMEM((uint)(addr + i), toSend);
+				i += remain;
+			}
+
+
 			return StandartAnswers.OK;
 		}
 
@@ -341,7 +326,7 @@ namespace z80gdbserver.Gdb
 		{
 			string[] parameters = packet.GetCommandParameters();
 			Breakpoint.BreakpointType type = Breakpoint.GetBreakpointType(int.Parse(parameters[0]));
-			ushort addr = Convert.ToUInt16(parameters[1], 16);
+			uint addr = Convert.ToUInt32(parameters[1], 16);
 
 			_target.AddBreakpoint(type, addr);
 
@@ -352,7 +337,7 @@ namespace z80gdbserver.Gdb
 		{
 			string[] parameters = packet.GetCommandParameters();
 			Breakpoint.BreakpointType type = Breakpoint.GetBreakpointType(int.Parse(parameters[0]));
-			ushort addr = Convert.ToUInt16(parameters[1], 16);
+			uint addr = Convert.ToUInt32(parameters[1], 16);
 
 			_target.RemoveBreakpoint(type, addr);
 

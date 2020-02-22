@@ -36,10 +36,22 @@ namespace z80gdbserver.Gdb
 		private readonly object _clientsLock = new object();
 		private readonly List<TcpClient> _clients = new List<TcpClient>();
 
+		static object _SporadicLock = new object();
+
 		public GDBNetworkServer(IDebugTarget target, int port)
 		{
 			_target = target;
 			_port = port;
+
+			_target.BreakpointHandler += BreakpointOccured;
+		}
+
+		void BreakpointOccured(object sender, EventArgs e)
+		{
+			lock (_SporadicLock)
+			{
+				SendGlobal(GDBSession.FormatResponse(GDBSession.StandartAnswers.Breakpoint, false));
+			}
 		}
 
 		public async Task StartServer()
@@ -53,9 +65,9 @@ namespace z80gdbserver.Gdb
 		public async Task Breakpoint(Breakpoint breakpoint)
 		{
 			// We do not need old breakpoints because GDB will set them again
-			_target.ClearBreakpoints();
+			//_target.ClearBreakpoints();
 
-			await SendGlobal(GDBSession.FormatResponse(GDBSession.StandartAnswers.Breakpoint));
+			await SendGlobal(GDBSession.FormatResponse(GDBSession.StandartAnswers.Breakpoint,true));
 		}
 
 		private async Task SendGlobal(string message)
@@ -84,7 +96,7 @@ namespace z80gdbserver.Gdb
 						_clients.RemoveAll(c => !c.Connected);
 					}
 
-					ProcessGdbClient(client);
+					await ProcessGdbClient(client);
 				}
 			}
 			catch(Exception ex)
@@ -143,15 +155,19 @@ namespace z80gdbserver.Gdb
 					GDBPacket packet = new GDBPacket(message, bytesRead);
 					_target.Log?.Invoke($"--> {packet}");
 
-					bool isSignal;
-					string response = session.ParseRequest(packet, out isSignal);
-					if (response != null)
+					lock (_SporadicLock)
 					{
-						if (isSignal)
-							await SendGlobal(response);
-						else
-							await SendResponse(clientStream, response);
+						bool isSignal;
+						string response = session.ParseRequest(packet, out isSignal);
+						if (response != null)
+						{
+							if (isSignal)
+								SendGlobal(response).Wait();
+							else
+								SendResponse(clientStream, response).Wait();
+						}
 					}
+
 				}
 			}
 
@@ -161,9 +177,17 @@ namespace z80gdbserver.Gdb
 		private async Task SendResponse(Stream stream, string response)
 		{
 			_target.Log?.Invoke($"<-- {response}");
-
+			
 			byte[] bytes = _encoder.GetBytes(response);
-			await stream.WriteAsync(bytes, 0, bytes.Length);
+
+			if (response[0] == '+')
+			{
+				await stream.WriteAsync(bytes, 0, 1);
+				if (bytes.Length > 1)
+					await stream.WriteAsync(bytes, 1, bytes.Length-1);
+			}
+			else
+				await stream.WriteAsync(bytes, 0, bytes.Length);
 		}
 
 		public void Dispose()

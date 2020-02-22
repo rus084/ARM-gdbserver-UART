@@ -22,13 +22,18 @@ namespace z80gdbserver.Interfaces
 {
 	public interface IDebugTarget
 	{
-		Z80Cpu CPU {get;}
 		void ClearBreakpoints();
 		void DoRun();
 		void DoStop();
-		void AddBreakpoint(Breakpoint.BreakpointType type, ushort addr);
-		void RemoveBreakpoint(Breakpoint.BreakpointType type, ushort addr);
+		void AddBreakpoint(Breakpoint.BreakpointType type, uint addr);
+		void RemoveBreakpoint(Breakpoint.BreakpointType type, uint addr);
+		void ExecCycle();
 
+		void WRMEM(uint addr, byte[] data);
+		byte[] RDMEM(uint addr,uint len);
+
+		void WRREG(int reg, uint val);
+		uint RDREG(int reg);
 		/// <summary>
 		/// Optional error logging, leave null if not needed
 		/// </summary>
@@ -44,6 +49,8 @@ namespace z80gdbserver.Interfaces
 		/// </summary>
 
 		Action<string> Log {get;}
+
+		event EventHandler BreakpointHandler;
 	}
 }
 

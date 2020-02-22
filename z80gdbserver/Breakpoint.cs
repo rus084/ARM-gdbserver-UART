@@ -24,7 +24,7 @@ namespace z80gdbserver
 		public delegate void BreakPointEventHandler(Breakpoint breakpoint);
 		
 		public BreakpointType Type { get; set; }
-		public ushort Address { get; set; }
+		public UInt32 Address { get; set; }
 		
 		static public BreakpointType GetBreakpointType(int type)
 		{
