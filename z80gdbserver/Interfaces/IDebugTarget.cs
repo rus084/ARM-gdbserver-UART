@@ -16,8 +16,6 @@
 
 using System;
 
-using ZXMAK2.Engine.Cpu.Processor;
-
 namespace z80gdbserver.Interfaces
 {
 	public interface IDebugTarget

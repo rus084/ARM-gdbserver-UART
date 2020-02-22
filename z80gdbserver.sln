@@ -1,11 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28307.489
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29728.190
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "z80gdbserver", "z80gdbserver\z80gdbserver.csproj", "{DB6C5EC6-2F63-47B6-B96B-756F2C9AAFF1}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ARMgdbserverUART", "z80gdbserver\ARMgdbserverUART.csproj", "{DB6C5EC6-2F63-47B6-B96B-756F2C9AAFF1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZXMAK2.Hardware.GdbServer", "ZXMAK2.Hardware.GdbServer\ZXMAK2.Hardware.GdbServer.csproj", "{B5AC7F80-7CBC-41EE-ACA4-D51D14527E87}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GDBwraper", "GDBwraper\GDBwraper.csproj", "{B9ECAA0F-44A1-4288-BDFB-D84C5906C690}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -23,14 +23,14 @@ Global
 		{DB6C5EC6-2F63-47B6-B96B-756F2C9AAFF1}.Release|Any CPU.Build.0 = Release|Any CPU
 		{DB6C5EC6-2F63-47B6-B96B-756F2C9AAFF1}.Release|x86.ActiveCfg = Release|Any CPU
 		{DB6C5EC6-2F63-47B6-B96B-756F2C9AAFF1}.Release|x86.Build.0 = Release|Any CPU
-		{B5AC7F80-7CBC-41EE-ACA4-D51D14527E87}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B5AC7F80-7CBC-41EE-ACA4-D51D14527E87}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B5AC7F80-7CBC-41EE-ACA4-D51D14527E87}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{B5AC7F80-7CBC-41EE-ACA4-D51D14527E87}.Debug|x86.Build.0 = Debug|Any CPU
-		{B5AC7F80-7CBC-41EE-ACA4-D51D14527E87}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B5AC7F80-7CBC-41EE-ACA4-D51D14527E87}.Release|Any CPU.Build.0 = Release|Any CPU
-		{B5AC7F80-7CBC-41EE-ACA4-D51D14527E87}.Release|x86.ActiveCfg = Release|Any CPU
-		{B5AC7F80-7CBC-41EE-ACA4-D51D14527E87}.Release|x86.Build.0 = Release|Any CPU
+		{B9ECAA0F-44A1-4288-BDFB-D84C5906C690}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B9ECAA0F-44A1-4288-BDFB-D84C5906C690}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B9ECAA0F-44A1-4288-BDFB-D84C5906C690}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B9ECAA0F-44A1-4288-BDFB-D84C5906C690}.Debug|x86.Build.0 = Debug|Any CPU
+		{B9ECAA0F-44A1-4288-BDFB-D84C5906C690}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B9ECAA0F-44A1-4288-BDFB-D84C5906C690}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B9ECAA0F-44A1-4288-BDFB-D84C5906C690}.Release|x86.ActiveCfg = Release|Any CPU
+		{B9ECAA0F-44A1-4288-BDFB-D84C5906C690}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

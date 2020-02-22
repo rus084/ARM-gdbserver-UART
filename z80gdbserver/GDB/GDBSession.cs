@@ -16,8 +16,6 @@
 using System;
 using System.Linq;
 
-using ZXMAK2.Engine.Cpu;
-
 using z80gdbserver.Interfaces;
 
 namespace z80gdbserver.Gdb
